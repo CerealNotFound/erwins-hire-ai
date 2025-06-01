@@ -3,6 +3,8 @@
 import React from "react";
 import { Sidebar } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useApiToast } from "../promise-sonner/promise-sonner";
+import { useRouter } from "next/navigation";
 
 interface SearchSidebarProps {
   isOpen: boolean;
@@ -19,6 +21,23 @@ export const SearchSidebar = ({
   activeSearchId,
   onSearchSelect,
 }: SearchSidebarProps) => {
+  const router = useRouter();
+  const { callApi } = useApiToast();
+
+  const signout = () => {
+    callApi({
+      url: "/api/auth/signout",
+      method: "POST",
+      loadingMessage: "Signing out...",
+      successMessage: () => "Signed out successfully! :D",
+      errorMessage: (err) => `Sign out failed: ${err.message}`,
+      onSuccess: (data) => {
+        console.log("User Signed in:", data);
+        router.push("/login");
+      },
+    });
+  };
+
   return (
     <>
       <div
@@ -37,6 +56,14 @@ export const SearchSidebar = ({
             >
               <Sidebar className="w-4 h-4 mr-2" />
               Recent Searches
+            </Button>
+            <Button
+              size={"sm"}
+              variant="ghost"
+              className="text-neutral-300 hover:bg-neutral-800 w-18 justify-start"
+              onClick={signout}
+            >
+              Logout
             </Button>
           </div>
 

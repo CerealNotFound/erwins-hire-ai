@@ -4,7 +4,7 @@ import { SignupForm } from "@/components/auth/signup-form";
 
 export default function SignupPage() {
   return (
-    <div className="grid min-h-svh lg:grid-cols-2 w-full">
+    <div className="grid min-h-screen pt-14 lg:grid-cols-2 w-full">
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-start">
           <a href="#" className="flex items-center gap-2 font-medium">
