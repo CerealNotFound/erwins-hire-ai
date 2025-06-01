@@ -71,7 +71,6 @@ export async function geminiReformulator(
         - "5+ years" → "experience": {"min": 5}
         - "3-5 years" → "experience": {"min": 3, "max": 5}
       `,
-
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,

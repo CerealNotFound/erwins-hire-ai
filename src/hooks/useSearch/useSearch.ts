@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
-import { Candidate, queryPipeline } from "@/lib/query/queryPipeline";
 
 export const useSearch = (engine: "gemini" | "openai" = "gemini") => {
   const [loading, setLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState<Candidate[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [reformulatedQuery, setReformulatedQuery] = useState<string>();
+  const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
 
   const searchCandidates = async (
     query: string,
@@ -16,7 +16,7 @@ export const useSearch = (engine: "gemini" | "openai" = "gemini") => {
       location?: string;
     }
   ) => {
-    if (!query.trim()) return;
+    if (!query.trim()) return null;
 
     setLoading(true);
     try {
@@ -31,15 +31,32 @@ export const useSearch = (engine: "gemini" | "openai" = "gemini") => {
       }
 
       const data = await response.json();
+      
+      // CRITICAL: Capture the search ID from response
+      const newSearchId = data.searchId || data.queryId;
+      
       setSearchResults(data.data || []);
       setReformulatedQuery(data.reformulatedQuery);
+      setCurrentSearchId(newSearchId);
+      
+      return newSearchId; // Return so parent component can use it
     } catch (error) {
       console.error("Search error:", error);
       setSearchResults([]);
+      setCurrentSearchId(null);
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
-  return { searchCandidates, loading, searchResults, reformulatedQuery };
+  return { 
+    searchCandidates, 
+    loading, 
+    searchResults, 
+    setSearchResults, 
+    reformulatedQuery,
+    currentSearchId,
+    setCurrentSearchId
+  };
 };

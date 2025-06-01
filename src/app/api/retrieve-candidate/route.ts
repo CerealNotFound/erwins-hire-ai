@@ -276,7 +276,11 @@ async function saveSearchSession(
         recruiter_query_id: queryData.id,
         candidate_id: candidate.id,
         rank: index + 1,
-        score: candidate.overall_score / 100,
+        skill_match_percentage: candidate.skill_match_percentage,
+        semantic_match_score: candidate.semantic_match_score,
+        overall_score: candidate.overall_score,
+        matching_skills: candidate.matching_skills,
+        missing_skills: candidate.missing_skills,
       }));
 
       const { error: resultsError } = await supabase
@@ -325,23 +329,30 @@ export async function POST(request: Request) {
       searchParams.maxExperience
     );
 
-    // Step 5: Save Session (non-blocking)
-    saveSearchSession(
+    // Step 5: Save Session (MAKE THIS BLOCKING, NOT NON-BLOCKING)
+    const sessionResult = await saveSearchSession(
       supabase,
       user.id,
       query,
       embedding,
       processedResults
-    ).catch((error) => console.error("⚠️ Session save failed:", error));
-
-    // Step 6: Build Response
-    const response = buildSearchResponse(
-      processedResults,
-      query,
-      reformulatedQuery,
-      searchParams,
-      { ...searchConfig, embeddingDim: embedding.length }
     );
+
+    if (!sessionResult.success) {
+      console.error("⚠️ Session save failed:", sessionResult.error);
+    }
+
+    // Step 6: Build Response - INCLUDE THE SEARCH ID
+    const response = {
+      ...buildSearchResponse(
+        processedResults,
+        query,
+        reformulatedQuery,
+        searchParams,
+        { ...searchConfig, embeddingDim: embedding.length }
+      ),
+      searchId: sessionResult.queryId || null, // CRITICAL: Include search ID
+    };
 
     console.log(`✅ Search completed: ${processedResults.length} results`);
     return Response.json(response, { status: 200 });

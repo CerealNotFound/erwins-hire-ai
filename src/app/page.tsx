@@ -15,7 +15,7 @@ export default function Home() {
       />
 
       {/* Content Layer - positioned above image */}
-      <div className="relative z-10 flex w-full h-full flex-col justify-center items-center gap-10 px-8">
+      <div className="relative z-1 flex w-full h-full flex-col justify-center items-center gap-10 px-8">
         <div className="text-6xl font-medium font-poppins w-full max-w-2xl text-center">
           Introducing Erwin's
           <div className="font-extrabold mt-10">HireAI</div>
@@ -27,7 +27,7 @@ export default function Home() {
         </div>
 
         {/* The animated gradient border button */}
-        <a href="/chat">
+        <a href="/search">
           <Button
             variant={"ghost"}
             className="relative h-12 px-8 py-4 text-lg font-poppins font-medium text-white rounded-xl overflow-hidden group

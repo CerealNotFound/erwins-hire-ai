@@ -68,7 +68,7 @@ export const ExportForRAG = () => {
     <div className="mt-10 space-y-6">
       <div>
         <Label htmlFor="file" className="text-lg font-medium">
-          Upload PDFs for processing
+          Feed the AI beast (.pdf/.docx)
         </Label>
         <Input
           name="file"
@@ -107,7 +107,7 @@ export const ExportForRAG = () => {
           {processedCount > 0 && (
             <div className="mt-4 text-sm">
               <p>
-                 {processedCount - failedFiles.length} succeeded / {" "}
+                {processedCount - failedFiles.length} succeeded /{" "}
                 {failedFiles.length} failed
               </p>
               {failedFiles.length > 0 && (

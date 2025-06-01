@@ -3,7 +3,8 @@ import { toast } from "sonner";
 
 export function useAudioRecorder(
   setTranscript: (text: string) => void,
-  sendMessageHandler: (text: string) => void
+  onAnswerRecieved: (text: string) => void,
+  isInterview: boolean = false
 ) {
   const [isRecording, setIsRecording] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -41,12 +42,17 @@ export function useAudioRecorder(
         // toast.success("Voice input detected");
         console.log(transcript);
 
-        if (transcript.toLowerCase().includes("send now")) {
-          toast.success("Sending message via voice command...");
-          setTranscript("");
-          sendMessageHandler(transcript.replace(/send now/i, "").trim());
+        if (isInterview) {
+          setTranscript(transcript);
+          onAnswerRecieved(transcript);
         } else {
-          setTranscript(transcript); // just fill in textarea
+          if (transcript.toLowerCase().includes("send now")) {
+            toast.success("Sending message via voice command...");
+            setTranscript("");
+            onAnswerRecieved(transcript.replace(/send now/i, "").trim());
+          } else {
+            setTranscript(transcript); // just fill in textarea
+          }
         }
       }
 
