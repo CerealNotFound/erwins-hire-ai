@@ -1,39 +1,71 @@
-import { useEmbedText } from "@/hooks/rag/useEmbedText";
 import { createClient } from "@/utils/supabase/server";
 
 export const POST = async (request: Request) => {
-  const body = await request.json(); // full CandidateProfile with about
-  const profile = body.profile;
-  console.log(body, profile);
+  const body = await request.json();
+  const candidatesWithEmbeddings = body.candidates; // Array of profiles WITH embeddings already
+
+  console.log(`Batch inserting ${candidatesWithEmbeddings.length} candidates`);
+
   const supabase = await createClient();
 
-  if (!profile.about) {
-    return Response.json({ error: "Missing about" }, { status: 400 });
+  // Get user ONCE - not per candidate
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  if (!candidatesWithEmbeddings?.length) {
+    return Response.json({ error: "No candidates to insert" }, { status: 400 });
+  }
+
+  // Add recruiter_id to ALL candidates in one go
+  const candidatesWithUserId = candidatesWithEmbeddings.map(
+    (candidate: any) => ({
+      ...candidate,
+      recruiter_id: user.id,
+    })
+  );
+
   try {
-    // Step 1: Embed the about
-    const [embedding] = await useEmbedText([profile.about]);
-
-    // Step 2: Add embedding to the profile object
-    const candidateWithEmbedding = {
-      ...profile,
-      embedding,
-    };
-
-    // Step 3: Insert into Supabase
-    const { error } = await supabase
+    // Single batch insert into Supabase
+    const { error, data } = await supabase
       .from("candidates")
-      .insert(candidateWithEmbedding);
+      .insert(candidatesWithUserId);
 
     if (error) {
-      console.error("Supabase insert error:", error);
-      return Response.json({ error: error.message }, { status: 400 });
+      console.error("Supabase batch insert error:", error);
+      return Response.json(
+        {
+          error: error.message,
+          successful: 0,
+          failed: candidatesWithEmbeddings.length,
+        },
+        { status: 400 }
+      );
     }
 
-    return Response.json({ success: true }, { status: 200 });
+    return Response.json(
+      {
+        success: true,
+        successful: candidatesWithEmbeddings.length,
+        failed: 0,
+        inserted: data || candidatesWithEmbeddings.length,
+      },
+      { status: 200 }
+    );
   } catch (err) {
-    console.error("Embedding error:", err);
-    return Response.json({ error: "Embedding failed" }, { status: 500 });
+    console.error("Batch insert error:", err);
+    return Response.json(
+      {
+        error: "Batch insert failed",
+        successful: 0,
+        failed: candidatesWithEmbeddings.length,
+      },
+      { status: 500 }
+    );
   }
 };

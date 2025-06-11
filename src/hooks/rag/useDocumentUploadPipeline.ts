@@ -12,7 +12,7 @@ export const useUploadPipeline = () => {
 
     const response = await callApi({
       url: "/api/rag/processFile",
-      method: "POST", 
+      method: "POST",
       data: formData,
       loadingMessage: `Processing ${file.name}...`,
       successMessage: () => "File processed successfully!",
@@ -29,7 +29,7 @@ export const useUploadPipeline = () => {
     let resume: string;
     let extractedLinks: string[] = [];
 
-    if (typeof processedData === 'string') {
+    if (typeof processedData === "string") {
       // Legacy: just text
       resume = processedData;
     } else if (processedData.text) {
@@ -67,13 +67,9 @@ export const useUploadPipeline = () => {
     // Step 1: Process file (now extracts links for PDFs)
     const processedFile = await processFile(file);
     console.log("Processed file:", processedFile);
-    
-    // Step 2: Extract profile using both text and links
-    const { profile } = await extractProfile(processedFile.data);
-    console.log("Extracted profile:", profile);
-    
+
     // Step 3: Upload to database
-    await uploadCandidateProfile(profile);
+    await uploadCandidateProfile(processedFile.data);
   };
 
   return { handleFullUploadPipeline };

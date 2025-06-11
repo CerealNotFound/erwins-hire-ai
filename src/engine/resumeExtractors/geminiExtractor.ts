@@ -9,7 +9,9 @@ interface ExperienceEntry {
   description: string;
 }
 
-export function calculateTotalExperience(experiences: ExperienceEntry[]): number {
+export function calculateTotalExperience(
+  experiences: ExperienceEntry[]
+): number {
   if (!experiences || experiences.length === 0) return 0;
 
   let totalMonths = 0;
@@ -17,86 +19,84 @@ export function calculateTotalExperience(experiences: ExperienceEntry[]): number
 
   for (const exp of experiences) {
     const startDate = parseDate(exp.start_date);
-    const endDate = exp.end_date.toLowerCase().includes('present') || 
-                   exp.end_date.toLowerCase().includes('current')
-      ? currentDate
-      : parseDate(exp.end_date);
+    const endDate =
+      exp.end_date.toLowerCase().includes("present") ||
+      exp.end_date.toLowerCase().includes("current")
+        ? currentDate
+        : parseDate(exp.end_date);
 
     if (!startDate || !endDate) {
-      console.warn(`Invalid dates for ${exp.company}: ${exp.start_date} - ${exp.end_date}`);
+      console.warn(
+        `Invalid dates for ${exp.company}: ${exp.start_date} - ${exp.end_date}`
+      );
       continue;
     }
 
-    // Calculate months between dates
     const yearDiff = endDate.getFullYear() - startDate.getFullYear();
     const monthDiff = endDate.getMonth() - startDate.getMonth();
     const experienceMonths = yearDiff * 12 + monthDiff;
 
-    // Add at least 1 month for any experience (handles same month start/end)
     totalMonths += Math.max(experienceMonths, 1);
   }
 
-  // Convert to years and round to 1 decimal place
   const totalYears = Math.round((totalMonths / 12) * 10) / 10;
   return Math.max(totalYears, 0);
 }
 
-// Parse various date formats commonly found in resumes
 function parseDate(dateStr: string): Date | null {
   if (!dateStr) return null;
 
   const cleanDate = dateStr.trim().toLowerCase();
-  
-  // Handle "present", "current", etc.
-  if (cleanDate.includes('present') || cleanDate.includes('current')) {
+
+  if (cleanDate.includes("present") || cleanDate.includes("current")) {
     return new Date();
   }
 
-  // Try different date formats
   const formats = [
-    // "Jan 2023", "January 2023"
     /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{4})$/i,
-    // "01/2023", "1/2023"  
     /^(\d{1,2})\/(\d{4})$/,
-    // "2023-01", "2023-1"
     /^(\d{4})-(\d{1,2})$/,
-    // Just year "2023"
     /^(\d{4})$/,
   ];
 
   const monthNames = {
-    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
   };
 
   for (const format of formats) {
     const match = cleanDate.match(format);
     if (match) {
       if (format === formats[0]) {
-        // Month name format
         const monthStr = match[1].substring(0, 3);
         const month = monthNames[monthStr as keyof typeof monthNames];
         const year = parseInt(match[2]);
         return new Date(year, month, 1);
       } else if (format === formats[1]) {
-        // MM/YYYY format
-        const month = parseInt(match[1]) - 1; // 0-indexed
+        const month = parseInt(match[1]) - 1;
         const year = parseInt(match[2]);
         return new Date(year, month, 1);
       } else if (format === formats[2]) {
-        // YYYY-MM format
         const year = parseInt(match[1]);
-        const month = parseInt(match[2]) - 1; // 0-indexed
+        const month = parseInt(match[2]) - 1;
         return new Date(year, month, 1);
       } else if (format === formats[3]) {
-        // Just year - assume January
         const year = parseInt(match[1]);
         return new Date(year, 0, 1);
       }
     }
   }
 
-  // Fallback: try native Date parsing
   try {
     const parsed = new Date(dateStr);
     return isNaN(parsed.getTime()) ? null : parsed;
@@ -105,110 +105,102 @@ function parseDate(dateStr: string): Date | null {
   }
 }
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+const GEMINI_API_KEYS = {
+  AGENT_1: process.env.GEMINI_API_KEY_1!, // Basic info
+  AGENT_2: process.env.GEMINI_API_KEY_2!, // Experience
+  AGENT_3: process.env.GEMINI_API_KEY_3!, // Skills & Education
+  AGENT_4: process.env.GEMINI_API_KEY_4!, // URLs (can reuse key 1 if needed)
+};
 
-export interface CandidateProfile {
-  full_name: string;
-  linkedin_url: string;
-  github_url: string;
-  title: string;
-  location: string;
-  skills: string[];
-  about: string;
-  email: string;
-  portfolio_url: string;
-  project_urls: string[];
-  blog_url: string;
-  experience_years: number; // ADD THIS FIELD
-  experience: {
-    company: string;
-    role: string;
-    start_date: string;
-    end_date: string;
-    description: string;
-  }[];
-  education: {
-    college_name: string;
-    degree: string;
-    start_date: string;
-    end_date: string;
-    cgpa: string;
-    location: string;
-  }[];
-}
+const ai1 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_1 });
+const ai2 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_2 });
+const ai3 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_3 });
+const ai4 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_4 });
 
-export async function enhancedGeminiExtractor(
-  resumeText: string,
-  extractedLinks: string[]
-): Promise<CandidateProfile> {
-  const chat = ai.chats.create({
+// AGENT 1: RECRUITER'S HONEST ASSESSMENT EXTRACTOR
+async function extractBasicInfo(resumeText: string) {
+  const chat = ai1.chats.create({
     model: "gemini-1.5-flash",
     config: {
       systemInstruction: `
-        You are PeopleGPT, an AI assistant that extracts structured candidate information from resumes. 
+        You are a senior technical recruiter with 10+ years of experience. Your job is to provide an HONEST, UNBIASED assessment of this candidate that would actually help in hiring decisions.
 
-        CRITICAL: Pay special attention to date formatting for experience calculations.
-        - Use consistent date formats: "Jan 2023", "Feb 2024", etc.
-        - For current positions, use "present" as end_date
-        - Ensure start_date comes before end_date chronologically
-        - Extract ALL work experience, including internships, part-time roles, freelance work
+        Extract:
+        - Full name (properly capitalized)
+        - Email address (valid format)
+        - Location (clean format)
+        - Professional title/role (their actual current/target role)
+        - Recruiter's honest assessment (THIS IS CRITICAL)
 
-        You will receive:
-        1. Resume text (may contain special characters marking where links were)
-        2. Array of extracted links from the PDF
+        For the ABOUT (RECRUITER'S ASSESSMENT), be brutally honest and specific:
+        - What's their actual experience level? (Junior/Mid/Senior/Principal)
+        - What are their strongest technical skills based on real projects?
+        - What gaps or weaknesses do you see?
+        - Are they a generalist or specialist? In what?
+        - What type of companies/roles would they be a good fit for?
+        - Any red flags or concerns?
+        - What makes them stand out (if anything)?
+        - Career trajectory - are they growing or stagnant?
 
-        Your task is to intelligently categorize and assign these links to the appropriate fields:
+        TONE: Professional but honest. Think like you're briefing a hiring manager.
+        LENGTH: 4-6 sentences that actually matter.
+        AVOID: Generic buzzwords, fluff, or marketing speak.
 
-        LINK CATEGORIZATION RULES:
-        - linkedin_url: LinkedIn profile URL (linkedin.com/in/username format)
-        - github_url: Main GitHub profile URL (github.com/username, NOT project repos)
-        - portfolio_url: Personal portfolio/website (vercel.app, netlify.app, github.io, personal domains, or URLs with "portfolio" in them)
-        - project_urls: Array of GitHub project repositories (github.com/username/project-name) - exclude the main profile
-        - blog_url: Blog platform URLs (dev.to, medium.com, hashnode, substack, or URLs with "blog")
-        - email: Extract from mailto: links or text
+        Example good assessment:
+        "Mid-level full-stack developer with 3+ years focused on React/Node.js. Strong frontend skills evident from multiple production projects, but backend experience seems limited to basic CRUD operations. Has worked at early-stage startups, shows initiative in learning new technologies quickly. Lacks enterprise-scale experience and system design knowledge. Good fit for growth-stage companies needing versatile developers, but would struggle in senior architect roles. Career trajectory shows consistent upward movement."
 
-        EXPERIENCE EXTRACTION RULES:
-        - Include ALL professional experience: full-time, part-time, internships, freelance, contract work
-        - Use clear, consistent date formats: "Jan 2023", "Dec 2024", "present"
-        - Extract role titles exactly as written
-        - Include comprehensive job descriptions
-        - Order experiences chronologically (most recent first)
-
-        SKILL NORMALIZATION RULES (CRITICAL):
-        - Convert ALL skills to lowercase, no spaces, no dots, no special characters
-        - Examples: "React.js" -> "reactjs", "Node.JS" -> "nodejs", "C++" -> "cpp", "HTML/CSS" -> "htmlcss"
-
-        Return a JSON object matching the exact schema provided.
-
-        Additional Rules:
-        - If no link matches a category, use empty string "" for single values or empty array [] for arrays
-        - Normalize URLs by removing trailing slashes and unnecessary parameters
-        - Skip school/vidyalaya entries in education
-        - Dates should be normalized (e.g., "Jun 2025", "present")
-        - The "about" field should be a comprehensive summary incorporating their background and work
+        Example bad assessment:
+        "Passionate software engineer with expertise in modern technologies and a drive for innovation."
       `,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
           full_name: { type: Type.STRING },
-          linkedin_url: { type: Type.STRING },
-          github_url: { type: Type.STRING },
-          title: { type: Type.STRING },
-          location: { type: Type.STRING },
-          skills: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-          },
-          about: { type: Type.STRING },
           email: { type: Type.STRING },
-          portfolio_url: { type: Type.STRING },
-          project_urls: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-          },
-          blog_url: { type: Type.STRING },
+          location: { type: Type.STRING },
+          title: { type: Type.STRING },
+          about: { type: Type.STRING },
+        },
+        required: ["full_name", "email", "location", "title", "about"],
+        additionalProperties: false,
+      },
+    },
+  });
+
+  const response = await chat.sendMessage({
+    message: `Analyze this resume from a recruiter's perspective:\n\n${resumeText}`,
+  });
+
+  return JSON.parse(response.text || "{}");
+}
+
+// AGENT 2: EXPERIENCE EXTRACTOR
+async function extractExperience(resumeText: string) {
+  const chat = ai2.chats.create({
+    model: "gemini-1.5-flash",
+    config: {
+      systemInstruction: `
+        You are an experience extraction specialist. Extract ALL work experience including:
+        - Full-time jobs, internships, freelance, contract work, part-time roles
+        - Company names (clean, no extra characters)
+        - Role titles (exact as written)
+        - Start/end dates in format "Jan 2023" or "present"
+        - Detailed job descriptions
+
+        CRITICAL DATE RULES:
+        - Use format: "Jan 2023", "Feb 2024", "Dec 2025"
+        - Current roles: use "present" as end_date
+        - Always ensure start_date is before end_date chronologically
+        - If unsure about dates, use best approximation
+
+        ORDER: Most recent experience first
+        QUALITY: Include comprehensive job descriptions, not just job titles
+      `,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
           experience: {
             type: Type.ARRAY,
             items: {
@@ -228,6 +220,49 @@ export async function enhancedGeminiExtractor(
                 "description",
               ],
             },
+          },
+        },
+        required: ["experience"],
+        additionalProperties: false,
+      },
+    },
+  });
+
+  const response = await chat.sendMessage({
+    message: `Extract all work experience from this resume:\n\n${resumeText}`,
+  });
+
+  return JSON.parse(response.text || "{}");
+}
+
+// AGENT 3: SKILLS & EDUCATION EXTRACTOR
+async function extractSkillsEducation(resumeText: string) {
+  const chat = ai3.chats.create({
+    model: "gemini-1.5-flash",
+    config: {
+      systemInstruction: `
+        You are a skills and education extraction specialist.
+
+        SKILLS NORMALIZATION (CRITICAL):
+        - Convert ALL skills to lowercase, no spaces, no dots, no special characters
+        - Examples: "React.js" -> "reactjs", "Node.JS" -> "nodejs", "C++" -> "cpp"
+        - "HTML/CSS" -> "htmlcss", "PostgreSQL" -> "postgresql"
+        - Include programming languages, frameworks, tools, technologies
+        - NO duplicates, NO generic terms like "programming" or "software"
+
+        EDUCATION RULES:
+        - Include universities/colleges only (skip high school/vidyalaya)
+        - Clean college names, proper degree titles
+        - Date format: "Jan 2020" to "May 2024" or "2020" to "2024"
+        - Include CGPA/GPA if mentioned, location if clear
+      `,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          skills: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
           },
           education: {
             type: Type.ARRAY,
@@ -252,112 +287,181 @@ export async function enhancedGeminiExtractor(
             },
           },
         },
+        required: ["skills", "education"],
+        additionalProperties: false,
+      },
+    },
+  });
+
+  const response = await chat.sendMessage({
+    message: `Extract skills and education from this resume:\n\n${resumeText}`,
+  });
+
+  return JSON.parse(response.text || "{}");
+}
+
+// AGENT 4: URL EXTRACTOR (THE STRICT ONE)
+async function extractUrls(resumeText: string, extractedLinks: string[]) {
+  const context = `Resume context: ${resumeText.substring(0, 500)}...`;
+
+  const chat = ai4.chats.create({
+    model: "gemini-1.5-flash",
+    config: {
+      systemInstruction: `
+        You are a URL categorization specialist. Your job is to categorize URLs with BRUTAL precision.
+
+        CANDIDATE CONTEXT: You are processing URLs for a resume belonging to "${context}".
+        
+        CRITICAL VALIDATION RULES:
+        - ONLY categorize URLs that clearly belong to this specific candidate
+        - LinkedIn URLs must contain this candidate's name or obvious username variation
+        - GitHub URLs must be the candidate's profile, not random repos they mentioned
+        - Portfolio URLs must be personal sites belonging to this candidate
+        - If you cannot verify a URL belongs to this candidate, set it to empty string
+
+        MANDATORY URL FORMATTING:
+        - ALL URLs must start with "https://"
+        - LinkedIn: MUST be "https://www.linkedin.com/in/username" (include https://www.)
+        - GitHub profile: MUST be "https://github.com/username" (NOT project repos)
+        - Portfolio: Personal websites, vercel.app, netlify.app, github.io domains
+        - Projects: GitHub repositories "https://github.com/username/repo-name"
+        - Blog: dev.to, medium.com, hashnode, substack URLs
+
+        VALIDATION RULES:
+        - If a URL doesn't match exact format, fix it or reject it
+        - No trailing slashes
+        - No query parameters unless essential
+        - linkedin.com/in/user -> https://www.linkedin.com/in/user
+        - github.com/user -> https://github.com/user
+
+        IF URL IS MALFORMED OR INCOMPLETE: Return empty string for that field
+      `,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          linkedin_url: { type: Type.STRING },
+          github_url: { type: Type.STRING },
+          portfolio_url: { type: Type.STRING },
+          project_urls: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+          },
+          blog_url: { type: Type.STRING },
+        },
         required: [
-          "full_name",
-          "title",
-          "location",
-          "skills",
-          "about",
-          "email",
+          "linkedin_url",
+          "github_url",
           "portfolio_url",
           "project_urls",
           "blog_url",
-          "experience",
-          "education",
         ],
         additionalProperties: false,
       },
     },
   });
 
-  const prompt = `
-RESUME TEXT:
-${resumeText}
+  const response = await chat.sendMessage({
+    message: `Categorize and format these URLs strictly:\n\n${extractedLinks.join(
+      "\n"
+    )}`,
+  });
 
-EXTRACTED LINKS:
-${extractedLinks.join("\n")}
-
-Please extract and categorize all information according to the schema, paying special attention to correctly categorizing the provided links.
-  `;
-
-  const response = await chat.sendMessage({ message: prompt });
-
-  try {
-    if (!response.text) {
-      throw new Error("Empty response from Gemini");
-    }
-    const json = JSON.parse(response.text);
-
-    // Post-process to ensure data quality
-    return validateAndEnhanceProfile(json, extractedLinks);
-  } catch (err) {
-    console.error("Failed to parse Gemini response as JSON:", response.text);
-    throw new Error("Invalid response format from Gemini.");
-  }
+  return JSON.parse(response.text || "{}");
 }
 
-// Post-processing validation and cleanup
-function validateAndEnhanceProfile(profile: any, originalLinks: string[]): CandidateProfile {
-  // Ensure all required fields exist with proper defaults
-  const cleaned: Omit<CandidateProfile, 'experience_years'> = {
-    full_name: profile.full_name || "",
-    linkedin_url: cleanUrl(profile.linkedin_url || ""),
-    github_url: cleanUrl(profile.github_url || ""),
-    title: profile.title || "",
-    location: profile.location || "",
-    skills: Array.isArray(profile.skills) ? profile.skills : [],
-    about: profile.about || "",
-    email: profile.email || "",
-    portfolio_url: cleanUrl(profile.portfolio_url || ""),
-    project_urls: Array.isArray(profile.project_urls) 
-      ? profile.project_urls.map(cleanUrl).filter(Boolean)
-      : [],
-    blog_url: cleanUrl(profile.blog_url || ""),
-    experience: Array.isArray(profile.experience) ? profile.experience : [],
-    education: Array.isArray(profile.education) ? profile.education : [],
+// MAIN ORCHESTRATOR
+export interface CandidateProfile {
+  full_name: string;
+  linkedin_url: string;
+  github_url: string;
+  title: string;
+  location: string;
+  skills: string[];
+  about: string;
+  email: string;
+  portfolio_url: string;
+  project_urls: string[];
+  blog_url: string;
+  experience_years: number;
+  embedding?: number[];
+  experience: {
+    company: string;
+    role: string;
+    start_date: string;
+    end_date: string;
+    description: string;
+  }[];
+  education: {
+    college_name: string;
+    degree: string;
+    start_date: string;
+    end_date: string;
+    cgpa: string;
+    location: string;
+  }[];
+}
+
+export async function enhancedGeminiExtractor(
+  resumeText: string,
+  extractedLinks: string[]
+): Promise<CandidateProfile> {
+  console.log("🚀 Starting parallel extraction with 4 specialized agents...");
+
+  // RUN ALL 4 AGENTS IN PARALLEL
+  const [basicInfo, experienceData, skillsEducationData, urlData] =
+    await Promise.all([
+      extractBasicInfo(resumeText),
+      extractExperience(resumeText),
+      extractSkillsEducation(resumeText),
+      extractUrls(resumeText, extractedLinks), // Now passes resume context
+    ]);
+
+  console.log("✅ All agents completed. Combining results...");
+
+  // Calculate experience years
+  const experienceYears = calculateTotalExperience(
+    experienceData.experience || []
+  );
+
+  // COMBINE ALL RESULTS
+  const profile: CandidateProfile = {
+    // Basic info
+    full_name: basicInfo.full_name || "",
+    email: basicInfo.email || "",
+    location: basicInfo.location || "",
+    title: basicInfo.title || "",
+    about: basicInfo.about || "",
+
+    // URLs (strictly formatted)
+    linkedin_url: urlData.linkedin_url || "",
+    github_url: urlData.github_url || "",
+    portfolio_url: urlData.portfolio_url || "",
+    project_urls: urlData.project_urls || [],
+    blog_url: urlData.blog_url || "",
+
+    // Skills & Education
+    skills: skillsEducationData.skills || [],
+    education: skillsEducationData.education || [],
+
+    // Experience
+    experience: experienceData.experience || [],
+    experience_years: experienceYears,
   };
 
-  // CALCULATE EXPERIENCE YEARS
-  const experienceYears = calculateTotalExperience(cleaned.experience);
-  
-  console.log(`Calculated ${experienceYears} years of experience for ${cleaned.full_name}`);
-  console.log('Experience breakdown:', cleaned.experience.map(exp => 
-    `${exp.company}: ${exp.start_date} - ${exp.end_date}`
-  ));
+  console.log(
+    `🎯 Profile created for ${profile.full_name} with ${profile.experience_years} years experience`
+  );
 
-  const enhancedProfile: CandidateProfile = {
-    ...cleaned,
-    experience_years: experienceYears
-  };
-
-  // Validate that assigned URLs actually exist in the extracted links
-  const linkSet = new Set(originalLinks.map(link => link.toLowerCase()));
-  
-  if (enhancedProfile.linkedin_url && !linkSet.has(enhancedProfile.linkedin_url.toLowerCase())) {
-    console.warn("LinkedIn URL not found in extracted links:", enhancedProfile.linkedin_url);
-  }
-  
-  if (enhancedProfile.github_url && !linkSet.has(enhancedProfile.github_url.toLowerCase())) {
-    console.warn("GitHub URL not found in extracted links:", enhancedProfile.github_url);
-  }
-
-  return enhancedProfile;
+  return profile;
 }
 
-function cleanUrl(url: string): string {
-  if (!url) return "";
-  return url.trim().replace(/\/$/, ""); // Remove trailing slash
-}
-
-// Utility function to combine PDF processing with AI extraction
+// Keep your existing utility function
 export async function processPDFResume(
   buffer: Buffer
 ): Promise<CandidateProfile> {
-  // Import the PDF processing function
-
   const { enrichedText, extractedLinks } = await preparePDFForAIExtraction(
     buffer
   );
-
   return enhancedGeminiExtractor(enrichedText, extractedLinks);
 }
