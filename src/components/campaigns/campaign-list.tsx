@@ -26,6 +26,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDistanceToNow } from "date-fns";
+import { useFetchCampaigns } from "@/hooks/useFetchCampaigns";
+import { useAtomValue } from "jotai";
+import { campaignsAtom, loadingCampaignsAtom } from "@/lib/atoms/campaigns";
 
 interface Campaign {
   id: string;
@@ -44,27 +47,10 @@ interface Campaign {
 }
 
 export default function CampaignList() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [loading, setLoading] = useState(true);
+  useFetchCampaigns();
+  const campaigns = useAtomValue(campaignsAtom);
+  const loading = useAtomValue(loadingCampaignsAtom);
   const router = useRouter();
-
-  useEffect(() => {
-    fetchCampaigns();
-  }, []);
-
-  const fetchCampaigns = async () => {
-    try {
-      const response = await fetch("/api/campaigns");
-      if (response.ok) {
-        const data = await response.json();
-        setCampaigns(data.campaigns);
-      }
-    } catch (error) {
-      console.error("Failed to fetch campaigns:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleViewCampaign = (campaignId: string) => {
     router.push(`/outreach/campaigns/${campaignId}`);
@@ -79,7 +65,7 @@ export default function CampaignList() {
       });
 
       if (response.ok) {
-        fetchCampaigns(); // Refresh the list
+        useFetchCampaigns(); // Refresh the list
       }
     } catch (error) {
       console.error("Failed to archive campaign:", error);
@@ -100,7 +86,7 @@ export default function CampaignList() {
       });
 
       if (response.ok) {
-        fetchCampaigns(); // Refresh the list
+        useFetchCampaigns(); // Refresh the list
       }
     } catch (error) {
       console.error("Failed to duplicate campaign:", error);

@@ -40,7 +40,7 @@ export async function GET() {
         education,
         email,
         portfolio_url,
-        project_urls,
+        projects,
         blog_url,
         experience_years
       )

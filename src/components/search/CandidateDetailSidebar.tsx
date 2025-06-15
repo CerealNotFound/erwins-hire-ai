@@ -40,7 +40,7 @@ export const CandidateDetailSidebar = ({
   candidate,
   onClose,
   showOutreachButton,
-  onOutreach
+  onOutreach,
 }: CandidateDetailSidebarProps) => {
   if (!candidate) return null;
 
@@ -295,27 +295,41 @@ export const CandidateDetailSidebar = ({
           )}
 
           {/* Projects */}
-          {candidate.project_urls && candidate.project_urls.length > 0 && (
+          {candidate.projects && candidate.projects.length > 0 && (
             <>
               <div className="space-y-3">
                 <h4 className="text-lg font-semibold text-white flex items-center gap-2">
                   <Code className="w-5 h-5" />
                   Projects
                 </h4>
-                <div className="space-y-2">
-                  {candidate.project_urls.map((url, index) => (
-                    <Button
-                      key={index}
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start"
-                      asChild
-                    >
-                      <a href={url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Project {index + 1}
-                      </a>
-                    </Button>
+                <div className="space-y-3">
+                  {candidate.projects.map((project, index) => (
+                    <div key={index} className="bg-neutral-800 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="font-medium text-lime-200">
+                          {project.project_name}
+                        </h5>
+                      </div>
+                      <div className="mb-4">
+                        <div>{project.description}</div>
+                      </div>
+                      <Button
+                        key={index}
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start"
+                        asChild
+                      >
+                        <a
+                          href={project.github_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Project {index + 1}
+                        </a>
+                      </Button>
+                    </div>
                   ))}
                 </div>
               </div>

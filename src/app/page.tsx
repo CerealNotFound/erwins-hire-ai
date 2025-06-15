@@ -97,7 +97,7 @@ export default function HireAILanding() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-10 justify-center items-center mb-12">
-            <a href="/search">
+            <a href="/hire">
               <Button
                 variant={"ghost"}
                 className="relative cursor-pointer h-12 px-8 py-4 text-lg font-poppins font-medium text-white rounded-xl overflow-hidden group

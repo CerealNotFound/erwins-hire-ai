@@ -56,7 +56,7 @@ export function useSimpleVoiceEngine({
       await ensureAudioContextResumed(avatar);
 
       // Test with a short silent audio to ensure everything works
-      await speakMessage("Preparing myself.", true);
+      await speakMessage("Preparing your interview.", true);
 
       // Set both state and ref
       isAudioInitializedRef.current = true;

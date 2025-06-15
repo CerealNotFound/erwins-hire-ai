@@ -132,11 +132,12 @@ export default function Search() {
       {/* Main Content */}
       <div
         className={`flex min-h-screen ${
-          isOpen ? "w-5/6" : "w-full"
+          // isOpen ? "w-5/6" :
+          "w-full"
         } flex-col bg-neutral-950 transition-all`}
       >
         {/* Content Area */}
-        <div className="flex min-h-screen w-full flex-col bg-neutral-950 pt-16">
+        <div className="flex min-h-screen w-full flex-col bg-neutral-950">
           {searchResults.length === 0 ? (
             <EmptyState />
           ) : (

@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
     return Response.json({ profile }, { status: 200 });
   } catch (error) {
-    console.error("[/api/process-resumex] Error:", error);
+    console.error("[/api/process-resume] Error:", error);
     return Response.json(
       { error: "Failed to extract resume profile" },
       { status: 500 }

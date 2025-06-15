@@ -4,37 +4,18 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, MessageSquare, CheckCircle, TrendingUp } from "lucide-react";
-
-interface CampaignMetrics {
-  totalCampaigns: number;
-  activeCampaigns: number;
-  totalCandidatesReached: number;
-  totalInterviews: number;
-  completedInterviews: number;
-  averageResponseRate: number;
-}
+import { useFetchCampaignMetrics } from "@/hooks/useFetchCampaignMetrics";
+import { useAtomValue } from "jotai";
+import {
+  campaignMetricsAtom,
+  loadingMetricsAtom,
+} from "@/lib/atoms/campaignMetrics";
 
 export default function CampaignMetrics() {
-  const [metrics, setMetrics] = useState<CampaignMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
+  useFetchCampaignMetrics();
 
-  useEffect(() => {
-    fetchMetrics();
-  }, []);
-
-  const fetchMetrics = async () => {
-    try {
-      const response = await fetch("/api/campaigns/metrics");
-      if (response.ok) {
-        const data = await response.json();
-        setMetrics(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch metrics:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const metrics = useAtomValue(campaignMetricsAtom);
+  const loading = useAtomValue(loadingMetricsAtom);
 
   if (loading || !metrics) {
     return (

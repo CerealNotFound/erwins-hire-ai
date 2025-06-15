@@ -9,6 +9,14 @@ interface ExperienceEntry {
   description: string;
 }
 
+export interface ProjectEntry {
+  project_name: string;
+  description: string;
+  technologies: string[];
+  github_url?: string;
+  live_url?: string;
+}
+
 export function calculateTotalExperience(
   experiences: ExperienceEntry[]
 ): number {
@@ -109,18 +117,20 @@ const GEMINI_API_KEYS = {
   AGENT_1: process.env.GEMINI_API_KEY_1!, // Basic info
   AGENT_2: process.env.GEMINI_API_KEY_2!, // Experience
   AGENT_3: process.env.GEMINI_API_KEY_3!, // Skills & Education
-  AGENT_4: process.env.GEMINI_API_KEY_4!, // URLs (can reuse key 1 if needed)
+  AGENT_4: process.env.GEMINI_API_KEY_4!, // URLs
+  AGENT_5: process.env.GEMINI_API_KEY_5!, // Projects
 };
 
 const ai1 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_1 });
 const ai2 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_2 });
 const ai3 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_3 });
 const ai4 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_4 });
+const ai5 = new GoogleGenAI({ apiKey: GEMINI_API_KEYS.AGENT_5 });
 
 // AGENT 1: RECRUITER'S HONEST ASSESSMENT EXTRACTOR
 async function extractBasicInfo(resumeText: string) {
   const chat = ai1.chats.create({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash",
     config: {
       systemInstruction: `
         You are a senior technical recruiter with 10+ years of experience. Your job is to provide an HONEST, UNBIASED assessment of this candidate that would actually help in hiring decisions.
@@ -178,7 +188,7 @@ async function extractBasicInfo(resumeText: string) {
 // AGENT 2: EXPERIENCE EXTRACTOR
 async function extractExperience(resumeText: string) {
   const chat = ai2.chats.create({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash",
     config: {
       systemInstruction: `
         You are an experience extraction specialist. Extract ALL work experience including:
@@ -238,7 +248,7 @@ async function extractExperience(resumeText: string) {
 // AGENT 3: SKILLS & EDUCATION EXTRACTOR
 async function extractSkillsEducation(resumeText: string) {
   const chat = ai3.chats.create({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash",
     config: {
       systemInstruction: `
         You are a skills and education extraction specialist.
@@ -254,7 +264,7 @@ async function extractSkillsEducation(resumeText: string) {
         - Include universities/colleges only (skip high school/vidyalaya)
         - Clean college names, proper degree titles
         - Date format: "Jan 2020" to "May 2024" or "2020" to "2024"
-        - Include CGPA/GPA if mentioned, location if clear
+        - Include CGPA/GPA if mentioned else leave blank, location if clear
       `,
       responseMimeType: "application/json",
       responseSchema: {
@@ -305,7 +315,7 @@ async function extractUrls(resumeText: string, extractedLinks: string[]) {
   const context = `Resume context: ${resumeText.substring(0, 500)}...`;
 
   const chat = ai4.chats.create({
-    model: "gemini-1.5-flash",
+    model: "gemini-2.0-flash",
     config: {
       systemInstruction: `
         You are a URL categorization specialist. Your job is to categorize URLs with BRUTAL precision.
@@ -324,7 +334,6 @@ async function extractUrls(resumeText: string, extractedLinks: string[]) {
         - LinkedIn: MUST be "https://www.linkedin.com/in/username" (include https://www.)
         - GitHub profile: MUST be "https://github.com/username" (NOT project repos)
         - Portfolio: Personal websites, vercel.app, netlify.app, github.io domains
-        - Projects: GitHub repositories "https://github.com/username/repo-name"
         - Blog: dev.to, medium.com, hashnode, substack URLs
 
         VALIDATION RULES:
@@ -343,19 +352,9 @@ async function extractUrls(resumeText: string, extractedLinks: string[]) {
           linkedin_url: { type: Type.STRING },
           github_url: { type: Type.STRING },
           portfolio_url: { type: Type.STRING },
-          project_urls: {
-            type: Type.ARRAY,
-            items: { type: Type.STRING },
-          },
           blog_url: { type: Type.STRING },
         },
-        required: [
-          "linkedin_url",
-          "github_url",
-          "portfolio_url",
-          "project_urls",
-          "blog_url",
-        ],
+        required: ["linkedin_url", "github_url", "portfolio_url", "blog_url"],
         additionalProperties: false,
       },
     },
@@ -365,6 +364,81 @@ async function extractUrls(resumeText: string, extractedLinks: string[]) {
     message: `Categorize and format these URLs strictly:\n\n${extractedLinks.join(
       "\n"
     )}`,
+  });
+
+  return JSON.parse(response.text || "{}");
+}
+
+// AGENT 5: PROJECT EXTRACTOR (NEW!)
+async function extractProjects(resumeText: string) {
+  const chat = ai5.chats.create({
+    model: "gemini-2.0-flash",
+    config: {
+      systemInstruction: `
+        You are a technical project extraction specialist. Your job is to extract ALL personal, academic, and professional projects from resumes.
+
+        EXTRACTION RULES:
+        - Extract project name (clean, no extra symbols)
+        - Extract comprehensive project description
+        - Extract technologies used (normalize: "React.js" -> "reactjs", "Node.JS" -> "nodejs")
+        - Extract key achievements/metrics (performance improvements, user impact, etc.)
+        - Extract any GitHub URLs for individual projects
+        - Extract live demo/deployment URLs if mentioned
+
+        WHAT TO LOOK FOR:
+        - Section headers: "Projects", "Personal Projects", "Academic Projects", "Side Projects"
+        - Bullet points describing what was built
+        - Technology stacks mentioned with project names
+        - GitHub repo links associated with specific projects
+        - Live URLs, deployment links, demo links
+
+        NORMALIZATION:
+        - Technologies should be lowercase, no spaces: "PostgreSQL" -> "postgresql", "TailwindCSS" -> "tailwindcss"
+        - Clean project names: remove extra characters, proper capitalization
+
+        QUALITY FOCUS:
+        - Comprehensive descriptions that show technical depth
+        - Clear technology categorization
+        - Separate GitHub URLs from general portfolio links
+
+        ORDER: Most impressive/recent projects first
+      `,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          projects: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                project_name: { type: Type.STRING },
+                description: { type: Type.STRING },
+                technologies: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                },
+                github_url: { type: Type.STRING },
+                live_url: { type: Type.STRING },
+              },
+              required: [
+                "project_name",
+                "description",
+                "technologies",
+                "github_url",
+                "live_url",
+              ],
+            },
+          },
+        },
+        required: ["projects"],
+        additionalProperties: false,
+      },
+    },
+  });
+
+  const response = await chat.sendMessage({
+    message: `Extract all projects with their details from this resume:\n\n${resumeText}`,
   });
 
   return JSON.parse(response.text || "{}");
@@ -381,7 +455,6 @@ export interface CandidateProfile {
   about: string;
   email: string;
   portfolio_url: string;
-  project_urls: string[];
   blog_url: string;
   experience_years: number;
   embedding?: number[];
@@ -400,21 +473,23 @@ export interface CandidateProfile {
     cgpa: string;
     location: string;
   }[];
+  projects: ProjectEntry[]; // NEW FIELD!
 }
 
 export async function enhancedGeminiExtractor(
   resumeText: string,
   extractedLinks: string[]
 ): Promise<CandidateProfile> {
-  console.log("🚀 Starting parallel extraction with 4 specialized agents...");
+  console.log("🚀 Starting parallel extraction with 5 specialized agents...");
 
-  // RUN ALL 4 AGENTS IN PARALLEL
-  const [basicInfo, experienceData, skillsEducationData, urlData] =
+  // RUN ALL 5 AGENTS IN PARALLEL
+  const [basicInfo, experienceData, skillsEducationData, urlData, projectData] =
     await Promise.all([
       extractBasicInfo(resumeText),
       extractExperience(resumeText),
       extractSkillsEducation(resumeText),
-      extractUrls(resumeText, extractedLinks), // Now passes resume context
+      extractUrls(resumeText, extractedLinks),
+      extractProjects(resumeText), // NEW AGENT!
     ]);
 
   console.log("✅ All agents completed. Combining results...");
@@ -437,7 +512,6 @@ export async function enhancedGeminiExtractor(
     linkedin_url: urlData.linkedin_url || "",
     github_url: urlData.github_url || "",
     portfolio_url: urlData.portfolio_url || "",
-    project_urls: urlData.project_urls || [],
     blog_url: urlData.blog_url || "",
 
     // Skills & Education
@@ -447,10 +521,13 @@ export async function enhancedGeminiExtractor(
     // Experience
     experience: experienceData.experience || [],
     experience_years: experienceYears,
+
+    // Projects (NEW!)
+    projects: projectData.projects || [],
   };
 
   console.log(
-    `🎯 Profile created for ${profile.full_name} with ${profile.experience_years} years experience`
+    `🎯 Profile created for ${profile.full_name} with ${profile.experience_years} years experience and ${profile.projects.length} projects`
   );
 
   return profile;

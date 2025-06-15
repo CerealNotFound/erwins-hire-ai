@@ -4,7 +4,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Compass, Search, Upload, User } from "lucide-react";
 
-export const Navbar = () => {
+export const MainNavbar = () => {
   return (
     <div className="w-full border-b h-14 fixed z-10 top-0 border-neutral-200 dark:border-neutral-800 bg-white/90 dark:bg-neutral-950/75 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-6">

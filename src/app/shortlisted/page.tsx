@@ -12,6 +12,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { OutreachDialog } from "@/components/OutreachDialog";
+import { ProjectEntry } from "@/engine/resumeExtractors/geminiExtractor";
 
 export interface ShortlistedCandidate {
   id: string;
@@ -26,7 +27,7 @@ export interface ShortlistedCandidate {
   education: any;
   email: string;
   portfolio_url: string;
-  project_urls: string[];
+  projects: ProjectEntry[];
   missing_skills: string[];
   experience_years: number;
   blog_url: string;
