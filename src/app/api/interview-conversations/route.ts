@@ -23,7 +23,7 @@ export async function POST(req: Request) {
           candidate_id: candidateId,
           total_questions: totalQuestions,
           metadata,
-          status: 'in_progress'
+          status: "in_progress",
         },
       ])
       .select()
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     return Response.json({
       success: true,
       conversationId: data.id,
-      conversation: data
+      conversation: data,
     });
   } catch (err) {
     console.error("❌ Server error:", err);
@@ -51,15 +51,16 @@ export async function POST(req: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const conversationId = searchParams.get("conversationId");
-  const campaignId = searchParams.get("campaignId");
-  const candidateId = searchParams.get("candidateId");
+  // const campaignId = searchParams.get("campaignId");
+  // const candidateId = searchParams.get("candidateId");
 
   const supabase = await createClient();
 
   try {
     let query = supabase
       .from("interview_conversations")
-      .select(`
+      .select(
+        `
         *,
         interview_messages (
           id,
@@ -69,20 +70,24 @@ export async function GET(request: Request) {
           answer_timestamp,
           metadata
         )
-      `);
+      `
+      )
+      .eq("id", conversationId);
 
-    if (conversationId) {
-      query = query.eq("id", conversationId);
-    } else if (campaignId && candidateId) {
-      query = query.eq("campaign_id", campaignId).eq("candidate_id", candidateId);
-    } else {
-      return Response.json(
-        { error: "Missing required parameters" },
-        { status: 400 }
-      );
-    }
+    // if (conversationId) {
+    //   query = query.eq("id", conversationId);
+    // } else if (campaignId && candidateId) {
+    //   query = query.eq("campaign_id", campaignId).eq("candidate_id", candidateId);
+    // } else {
+    //   return Response.json(
+    //     { error: "Missing required parameters" },
+    //     { status: 400 }
+    //   );
+    // }
 
-    const { data, error } = await query.order("created_at", { ascending: false });
+    const { data, error } = await query.order("created_at", {
+      ascending: false,
+    });
 
     if (error) {
       console.error("❌ Failed to fetch conversations:", error);
@@ -99,12 +104,23 @@ export async function GET(request: Request) {
   }
 }
 
+// Update your existing PATCH method in app/api/interview-conversations/route.ts
+// Replace the existing PATCH method with this:
+
 export async function PATCH(req: Request) {
   const supabase = await createClient();
 
   try {
     const body = await req.json();
-    const { conversationId, status, completedAt, questionsAnswered, metadata } = body;
+    const {
+      conversationId,
+      status,
+      completed_at,  // ✅ FIXED: Match frontend property name
+      started_at,    // ✅ ADDED: Support for started_at
+      questionsAnswered,
+      totalQuestions,
+      metadata,
+    } = body;
 
     if (!conversationId) {
       return Response.json(
@@ -114,10 +130,13 @@ export async function PATCH(req: Request) {
     }
 
     const updates: any = { updated_at: new Date().toISOString() };
-    
+
     if (status) updates.status = status;
-    if (completedAt) updates.completed_at = completedAt;
-    if (questionsAnswered !== undefined) updates.questions_answered = questionsAnswered;
+    if (completed_at) updates.completed_at = completed_at;  // ✅ FIXED: Use correct property
+    if (started_at) updates.started_at = started_at;        // ✅ ADDED
+    if (questionsAnswered !== undefined)
+      updates.questions_answered = questionsAnswered;
+    if (totalQuestions !== undefined) updates.total_questions = totalQuestions;
     if (metadata) updates.metadata = metadata;
 
     const { data, error } = await supabase

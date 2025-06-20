@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Search,
   Settings,
+  Upload,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -35,9 +36,9 @@ const items = [
     icon: Radio,
   },
   {
-    title: "Calendar",
-    url: "/hire/calendar",
-    icon: Calendar,
+    title: "Upload",
+    url: "/hire/upload",
+    icon: Upload,
   },
   {
     title: "Search",

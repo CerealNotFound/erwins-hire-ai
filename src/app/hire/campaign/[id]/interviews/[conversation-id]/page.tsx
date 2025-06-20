@@ -89,7 +89,7 @@ export default function InterviewViewer({
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-10 bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="flex items-center gap-3 text-neutral-400">
           <Loader2 className="w-5 h-5 animate-spin" />
           <span>Loading interview...</span>
@@ -119,23 +119,18 @@ export default function InterviewViewer({
     <div className="min-h-screen pt-16 bg-black text-neutral-100">
       <div className="max-w-4xl mx-auto p-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-neutral-400 hover:text-neutral-100"
-            >
-              <a href={`/outreach/campaigns/${campaignId}`}>
+            <Button size="sm">
+              <a
+                className="flex items-center"
+                href={`/hire/campaign/${campaignId}`}
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Campaign
               </a>
             </Button>
             <Separator orientation="vertical" className="h-6" />
-            <div className="flex items-center gap-2">
-              <MessageSquare className="w-5 h-5 text-neutral-500" />
-              <span className="text-lg font-medium">Interview Session</span>
-            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -156,6 +151,11 @@ export default function InterviewViewer({
               {stats.percentage}% complete
             </Badge>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 my-8">
+          <MessageSquare />
+          <span className="text-3xl font-medium">Interview Session</span>
         </div>
 
         {/* Messages */}

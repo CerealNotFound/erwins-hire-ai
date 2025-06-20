@@ -6,17 +6,20 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { 
-      conversationId, 
-      questionIndex, 
-      question, 
-      answer, 
-      metadata = {} 
+    const {
+      conversationId,
+      questionIndex,
+      question,
+      answer,
+      metadata = {},
     } = body;
 
     if (!conversationId || questionIndex === undefined || !question) {
       return Response.json(
-        { error: "Missing required fields: conversationId, questionIndex, question" },
+        {
+          error:
+            "Missing required fields: conversationId, questionIndex, question",
+        },
         { status: 400 }
       );
     }
@@ -38,7 +41,7 @@ export async function POST(req: Request) {
         .update({
           answer,
           answer_timestamp: answer ? new Date().toISOString() : null,
-          metadata
+          metadata,
         })
         .eq("id", existingMessage.id)
         .select()
@@ -63,7 +66,7 @@ export async function POST(req: Request) {
             question,
             answer,
             answer_timestamp: answer ? new Date().toISOString() : null,
-            metadata
+            metadata,
           },
         ])
         .select()
@@ -91,16 +94,16 @@ export async function POST(req: Request) {
 
       await supabase
         .from("interview_conversations")
-        .update({ 
+        .update({
           questions_answered: questionsAnswered,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq("id", conversationId);
     }
 
     return Response.json({
       success: true,
-      message: result
+      message: result,
     });
   } catch (err) {
     console.error("❌ Server error:", err);
@@ -111,6 +114,7 @@ export async function POST(req: Request) {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const conversationId = searchParams.get("conversationId");
+  console.log(conversationId);
 
   if (!conversationId) {
     return Response.json(

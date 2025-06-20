@@ -26,6 +26,24 @@ import { useFetchCampaigns } from "@/hooks/useFetchCampaigns";
 import CampaignList from "@/components/campaigns/campaign-list";
 import { useFetchCampaignMetrics } from "@/hooks/useFetchCampaignMetrics";
 
+const LoadingCard = ({ className = "" }) => (
+  <div className={`animate-pulse ${className}`}>
+    <div className="bg-neutral-800 rounded-lg h-full"></div>
+  </div>
+);
+
+const LoadingStat = () => (
+  <div className="border border-neutral-700 rounded-lg p-6">
+    <div className="animate-pulse">
+      <div className="flex items-center justify-between mb-2">
+        <div className="w-5 h-5 bg-neutral-700 rounded"></div>
+        <div className="w-8 h-8 bg-neutral-700 rounded"></div>
+      </div>
+      <div className="w-20 h-4 bg-neutral-700 rounded"></div>
+    </div>
+  </div>
+);
+
 export default function Dashboard() {
   useFetchCampaigns();
   useFetchCampaignMetrics();
@@ -109,65 +127,75 @@ export default function Dashboard() {
           </a>
 
           {/* Secondary Action - Create Campaign */}
-          <div className="border border-neutral-700 rounded-xl p-8 text-white relative overflow-hidden group hover:bg-neutral-750 hover:border-neutral-600 transition-all duration-300 cursor-pointer">
-            <div className="flex items-start justify-between mb-4">
-              <div className="bg-neutral-700 p-3 rounded-lg group-hover:bg-orange-500 transition-colors duration-300">
-                <Plus className="w-8 h-8 text-neutral-300 group-hover:text-white" />
+          <a href="/hire/campaign">
+            <div className="border border-neutral-700 rounded-xl p-11 text-white relative overflow-hidden group hover:bg-neutral-750 hover:border-neutral-600 transition-all duration-300 cursor-pointer">
+              <div className="flex items-start justify-between mb-4">
+                <div className="bg-neutral-700 p-3 rounded-lg group-hover:bg-orange-500 transition-colors duration-300">
+                  <Plus className="w-8 h-8 text-neutral-300 group-hover:text-white" />
+                </div>
+                <ArrowRight className="w-6 h-6 text-neutral-400 group-hover:translate-x-1 group-hover:text-orange-500 transition-all duration-300" />
               </div>
-              <ArrowRight className="w-6 h-6 text-neutral-400 group-hover:translate-x-1 group-hover:text-orange-500 transition-all duration-300" />
+              <h3 className="text-2xl font-bold mb-2">Launch New Campaign</h3>
+              <p className="text-neutral-300 mb-4">
+                Set up a targeted outreach campaign with AI-crafted messages
+              </p>
+              <div className="flex items-center gap-2 text-sm text-neutral-400">
+                <Clock className="w-4 h-4" />
+                <span>Takes 3 minutes to set up</span>
+              </div>
             </div>
-            <h3 className="text-2xl font-bold mb-2">Launch New Campaign</h3>
-            <p className="text-neutral-300 mb-4">
-              Set up a targeted outreach campaign with AI-crafted messages
-            </p>
-            <div className="flex items-center gap-2 text-sm text-neutral-400">
-              <Clock className="w-4 h-4" />
-              <span>Takes 3 minutes to set up</span>
-            </div>
-          </div>
+          </a>
         </div>
 
         {/* Stats Row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className=" border border-neutral-700 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Users className="w-5 h-5 text-neutral-400" />
-              <span className="text-2xl font-bold text-white">
-                {stats.totalCandidates}
-              </span>
-            </div>
-            <p className="text-sm text-neutral-500">Total Candidates</p>
-          </div>
+          {loadingMetrics ? (
+            Array.from({ length: 4 }).map((_, index) => (
+              <LoadingStat key={index} />
+            ))
+          ) : (
+            <>
+              <div className=" border border-neutral-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Users className="w-5 h-5 text-neutral-400" />
+                  <span className="text-2xl font-bold text-white">
+                    {stats.totalCandidates}
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-500">Total Candidates</p>
+              </div>
 
-          <div className=" border border-neutral-700 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Mail className="w-5 h-5 text-neutral-400" />
-              <span className="text-2xl font-bold text-white">
-                {stats.activeEmails}
-              </span>
-            </div>
-            <p className="text-sm text-neutral-500">Emails Sent</p>
-          </div>
+              <div className=" border border-neutral-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Mail className="w-5 h-5 text-neutral-400" />
+                  <span className="text-2xl font-bold text-white">
+                    {stats.activeEmails}
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-500">Emails Sent</p>
+              </div>
 
-          <div className=" border border-neutral-700 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-5 h-5 text-orange-500" />
-              <span className="text-2xl font-bold text-white">
-                {stats.responseRate}%
-              </span>
-            </div>
-            <p className="text-sm text-neutral-500">Response Rate</p>
-          </div>
+              <div className=" border border-neutral-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <TrendingUp className="w-5 h-5 text-orange-500" />
+                  <span className="text-2xl font-bold text-white">
+                    {stats.responseRate}%
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-500">Response Rate</p>
+              </div>
 
-          <div className=" border border-neutral-700 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Target className="w-5 h-5 text-neutral-400" />
-              <span className="text-2xl font-bold text-white">
-                {stats.activeCampaigns}
-              </span>
-            </div>
-            <p className="text-sm text-neutral-500">Active Campaigns</p>
-          </div>
+              <div className=" border border-neutral-700 rounded-lg p-6">
+                <div className="flex items-center justify-between mb-2">
+                  <Target className="w-5 h-5 text-neutral-400" />
+                  <span className="text-2xl font-bold text-white">
+                    {stats.activeCampaigns}
+                  </span>
+                </div>
+                <p className="text-sm text-neutral-500">Active Campaigns</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Two Column Layout */}
@@ -184,10 +212,23 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {campaigns.length > 0 ? (
+            {loadingCampaigns ? (
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <LoadingCard
+                    key={index}
+                    className="bg-neutral-900 border border-neutral-600 rounded-lg p-4 h-20"
+                  />
+                ))}
+              </div>
+            ) : campaigns.length > 0 ? (
               <div className="space-y-4">
                 {campaigns.map((campaign) => (
-                  <a key={campaign.id} href={`/hire/campaign/${campaign.id}`}>
+                  <a
+                    className="m-1"
+                    key={campaign.id}
+                    href={`/hire/campaign/${campaign.id}`}
+                  >
                     <div className="bg-neutral-900 border border-neutral-600 rounded-lg p-4 hover:border-neutral-500 transition-colors cursor-pointer">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -201,7 +242,7 @@ export default function Dashboard() {
                             </span>
                             <span className="flex items-center gap-1">
                               <MessageSquare className="w-4 h-4" />
-                              {campaign.response_rate} responses
+                              {campaign.response_rate.toFixed(1)} responses
                             </span>
                             <span className="flex items-center gap-1">
                               <Calendar className="w-4 h-4" />

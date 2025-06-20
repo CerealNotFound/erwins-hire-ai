@@ -53,7 +53,7 @@ export default function CampaignList() {
   const router = useRouter();
 
   const handleViewCampaign = (campaignId: string) => {
-    router.push(`/outreach/campaigns/${campaignId}`);
+    router.push(`/hire/campaign/${campaignId}`);
   };
 
   const handleArchiveCampaign = async (campaignId: string) => {
@@ -72,26 +72,26 @@ export default function CampaignList() {
     }
   };
 
-  const handleDuplicateCampaign = async (campaign: Campaign) => {
-    try {
-      const response = await fetch("/api/campaigns", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          campaign_name: `${campaign.campaign_name} (Copy)`,
-          role: campaign.role,
-          description: campaign.description,
-          questions: campaign.questions,
-        }),
-      });
+  // const handleDuplicateCampaign = async (campaign: Campaign) => {
+  //   try {
+  //     const response = await fetch("/api/campaigns", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({
+  //         campaign_name: `${campaign.campaign_name} (Copy)`,
+  //         role: campaign.role,
+  //         description: campaign.description,
+  //         questions: campaign.questions,
+  //       }),
+  //     });
 
-      if (response.ok) {
-        useFetchCampaigns(); // Refresh the list
-      }
-    } catch (error) {
-      console.error("Failed to duplicate campaign:", error);
-    }
-  };
+  //     if (response.ok) {
+  //       useFetchCampaigns(); // Refresh the list
+  //     }
+  //   } catch (error) {
+  //     console.error("Failed to duplicate campaign:", error);
+  //   }
+  // };
 
   if (loading) {
     return (
@@ -200,12 +200,12 @@ export default function CampaignList() {
                       <Eye className="h-4 w-4 mr-2" />
                       View Details
                     </DropdownMenuItem>
-                    <DropdownMenuItem
+                    {/* <DropdownMenuItem
                       onClick={() => handleDuplicateCampaign(campaign)}
                     >
                       <Copy className="h-4 w-4 mr-2" />
                       Duplicate
-                    </DropdownMenuItem>
+                    </DropdownMenuItem> */}
                     <DropdownMenuSeparator />
                     {campaign.is_active ? (
                       <DropdownMenuItem
@@ -269,7 +269,7 @@ export default function CampaignList() {
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-orange-500" />
                     <span className="text-neutral-600">
-                      {campaign.questions.length} questions
+{campaign.questions.length + Object.values(campaign.technical_config).reduce((sum, count) => sum + count, 0)} questions
                     </span>
                   </div>
                 </div>

@@ -14,25 +14,42 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { campaign_name, role, description, questions } = body;
+    const { 
+      campaign_name, 
+      role, 
+      description, 
+      culture_questions, 
+      technical_config,
+      icp_config
+    } = body;
 
-    if (!campaign_name || !role || !questions || questions.length === 0) {
+    // Validate required fields
+    if (!campaign_name || !role) {
       return Response.json(
         {
-          error: "Missing required fields",
+          error: "Campaign name and role are required",
         },
         { status: 400 }
       );
     }
 
-    const validQuestions = questions.filter(
+    // Process culture questions - filter out empty ones
+    const validCultureQuestions = culture_questions?.filter(
       (q: string) => q && q.trim() !== ""
+    ) || [];
+
+    // Validate technical config
+    const validTechnicalConfig = technical_config || {};
+    const totalTechnicalQuestions = Object.values(validTechnicalConfig).reduce(
+      (sum: number, count: any) => sum + (parseInt(count) || 0),
+      0
     );
 
-    if (validQuestions.length === 0) {
+    // Ensure at least one question type exists
+    if (validCultureQuestions.length === 0 && totalTechnicalQuestions === 0) {
       return Response.json(
         {
-          error: "At least one valid question is required",
+          error: "At least one culture question or technical question configuration is required",
         },
         { status: 400 }
       );
@@ -45,7 +62,9 @@ export async function POST(request: Request) {
           campaign_name: campaign_name.trim(),
           role: role.trim(),
           description: description?.trim() || null,
-          questions: validQuestions,
+          questions: validCultureQuestions, // Culture questions as text array
+          technical_config: validTechnicalConfig, // Technical config as JSONB
+          icp_config: icp_config,
           recruiter_id: user.id,
         },
       ])
@@ -71,12 +90,12 @@ export async function POST(request: Request) {
     console.error("API error:", error);
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
-}
+} 
 
 export async function GET(request: Request) {
   try {
     const supabase = await createClient();
-
+1
     const {
       data: { user },
       error: userError,

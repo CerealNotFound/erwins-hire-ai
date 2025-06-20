@@ -10,6 +10,13 @@ export interface Campaign {
   updated_at: string;
   is_active: boolean;
   questions: string[];
+  technical_config: {
+    level_1: number
+    level_2: number
+    level_3: number
+    level_4: number
+    level_5: number
+  };
   total_candidates: number;
   interviews_started: number;
   interviews_completed: number;

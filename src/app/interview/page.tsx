@@ -7,18 +7,26 @@ import AvatarComponent from "@/components/modules/talking-avatar/ai-avatar";
 import { useSimpleVoiceEngine } from "@/components/modules/talking-avatar/voice-engine";
 import { useAudioRecorder } from "@/hooks/chat-input/useAudioRecorder";
 
-interface OutreachCampaign {
+interface InterviewMessage {
   id: string;
-  campaign_name: string;
-  role: string;
-  description: string;
-  questions: string[];
+  question_index: number;
+  question: string;
+  answer: string | null;
+  answer_timestamp: string | null;
 }
 
-interface ConversationRecord {
-  question: string;
-  answer: string;
-  timestamp: Date;
+interface ConversationData {
+  id: string;
+  campaign_id: string;
+  candidate_id: string;
+  total_questions: number;
+  questions_answered: number;
+  status: string;
+  metadata: {
+    role?: string;
+    campaignName?: string;
+  };
+  messages: InterviewMessage[];
 }
 
 type InterviewState = "loading" | "ready" | "active" | "completed" | "error";
@@ -33,33 +41,30 @@ export default function InterviewPage() {
 
 function InterviewPageContent() {
   const searchParams = useSearchParams();
-  const campaignId = searchParams.get("campaignId");
-  const candidateId = searchParams.get("candidateId");
+  const conversationId = searchParams.get("conversationId");
 
   // Core state
   const [avatar, setAvatar] = useState<any>(null);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [campaign, setCampaign] = useState<OutreachCampaign | null>(null);
+  const [conversationData, setConversationData] =
+    useState<ConversationData | null>(null);
 
   // Interview flow
   const [interviewState, setInterviewState] =
     useState<InterviewState>("loading");
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [conversation, setConversation] = useState<ConversationRecord[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [isWaitingForAnswer, setIsWaitingForAnswer] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [interviewStartTime, setInterviewStartTime] = useState<number | null>(
     null
   );
 
-  // Voice engine - clean and simple
+  // Voice engine
   const voiceEngine = useSimpleVoiceEngine({
     avatar,
     onSpeechStart: () => console.log("🔊 Avatar started speaking"),
     onSpeechEnd: () => {
       console.log("🔇 Avatar finished speaking");
-      // If we just asked a question, start listening
       if (isWaitingForAnswer) {
         console.log("👂 Now listening for answer...");
       }
@@ -69,66 +74,112 @@ function InterviewPageContent() {
   // Audio recorder
   const { toggleRecording, isRecording, isTranscribing } = useAudioRecorder(
     (transcript) => {
-      console.log("🎤 Transcript received from recorder:", transcript);
+      console.log("🎤 Transcript received:", transcript);
       setTranscript(transcript);
     },
     (finalAnswer) => {
-      console.log("🎯 Final answer from recorder:", finalAnswer);
+      console.log("🎯 Final answer received:", finalAnswer);
       handleAnswerReceived(finalAnswer);
     },
     true
   );
-  // Fetch campaign data
+
+  // Load conversation data - FIXED: Single API call
   useEffect(() => {
-    if (!campaignId) {
+    if (!conversationId) {
       setInterviewState("error");
       return;
     }
 
-    const fetchCampaign = async () => {
+    const loadConversationData = async () => {
       try {
-        const response = await fetch(`/api/outreach-campaigns/${campaignId}`);
-        if (!response.ok) throw new Error("Failed to fetch campaign");
+        // Single API call that gets everything we need
+        const response = await fetch(
+          `/api/interview-conversations?conversationId=${conversationId}`
+        );
+        if (!response.ok) throw new Error("Failed to fetch conversation");
 
         const data = await response.json();
-        setCampaign(data.campaign);
+        console.log("📥 Conversation data loaded:", data);
 
-        // Once we have campaign data, we're ready (but need user to start)
-        if (avatar && data.campaign) {
-          setInterviewState("ready");
+        // Extract the conversation from the response
+        const conversation = data.conversations?.[0];
+        if (!conversation) {
+          throw new Error("Conversation not found");
+        }
+
+        // Transform the data to match our interface
+        const fullData: ConversationData = {
+          id: conversation.id,
+          campaign_id: conversation.campaign_id,
+          candidate_id: conversation.candidate_id,
+          total_questions: conversation.total_questions,
+          questions_answered: conversation.questions_answered,
+          status: conversation.status,
+          metadata: {
+            role: conversation.metadata?.role,
+            campaignName: conversation.metadata?.campaignName,
+          },
+          // Map interview_messages to our messages format
+          messages:
+            conversation.interview_messages?.map((msg: any) => ({
+              id: msg.id,
+              question_index: msg.question_index,
+              question: msg.question,
+              answer: msg.answer,
+              answer_timestamp: msg.answer_timestamp,
+            })) || [],
+        };
+
+        setConversationData(fullData);
+
+        // Find the first unanswered question
+        const unansweredIndex = fullData.messages.findIndex(
+          (msg) => !msg.answer
+        );
+
+        if (unansweredIndex === -1) {
+          // All questions answered - interview is completed
+          setInterviewState("completed");
+        } else {
+          setCurrentQuestionIndex(unansweredIndex);
+          // If we have avatar, we're ready to start
+          if (avatar) {
+            setInterviewState("ready");
+          }
         }
       } catch (error) {
-        console.error("Failed to fetch campaign:", error);
+        console.error("❌ Failed to load conversation:", error);
         setInterviewState("error");
       }
     };
 
-    fetchCampaign();
-  }, [campaignId, avatar]);
+    loadConversationData();
+  }, [conversationId, avatar]);
 
   // Handle avatar ready
   const handleAvatarReady = (head: any) => {
     console.log("✅ Avatar is ready");
     setAvatar(head);
 
-    // If we already have campaign data, we're ready
-    if (campaign) {
+    // If we already have conversation data and it's not completed, we're ready
+    if (conversationData && conversationData.status !== "completed") {
       setInterviewState("ready");
     }
   };
 
-  // START INTERVIEW - this is the only complex part, but now it's clean
+  // Start interview
   const startInterview = async () => {
-    if (!avatar || !campaign || !voiceEngine.isAvatarReady) {
+    if (!avatar || !conversationData || !voiceEngine.isAvatarReady) {
       console.error("❌ Not ready to start interview");
       return;
     }
 
     try {
       console.log("🚀 Starting interview...");
-      setInterviewState("loading"); // Show loading during setup
+      setInterviewState("loading");
 
-      // Step 1: Initialize audio (MUST be from user click)
+      // Initialize audio
       const audioReady = await voiceEngine.initializeAudio();
       if (!audioReady) {
         console.error("❌ Audio initialization failed");
@@ -136,31 +187,31 @@ function InterviewPageContent() {
         return;
       }
 
-      // Step 2: Create conversation record (with retry)
-      let retries = 3;
-      while (retries > 0) {
-        try {
-          await createConversationRecord();
-          break;
-        } catch (error) {
-          retries--;
-          if (retries === 0) throw error;
-          console.log(
-            `Retrying conversation creation... ${retries} attempts left`
-          );
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-      }
-
-      // Step 3: Start with greeting
       setInterviewState("active");
       setInterviewStartTime(Date.now());
 
-      const greeting = `Hello! Welcome to your interview for the ${campaign.role} position at ${campaign.campaign_name}. I'll be asking you ${campaign.questions.length} questions. Let's begin with the first question.`;
+      await fetch(`/api/interview-conversations`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: conversationId,
+          status: "in_progress",
+          started_at: new Date().toISOString(),
+        }),
+      });
+
+      // Greeting
+      const role = conversationData.metadata?.role || "this position";
+      const campaignName =
+        conversationData.metadata?.campaignName || "the company";
+      const totalQuestions = conversationData.total_questions;
+      const questionsRemaining = conversationData.messages.filter(
+        (msg) => !msg.answer
+      ).length;
+
+      const greeting = `Hello! Welcome to your interview for the ${role} position at ${campaignName}. I'll be asking you ${questionsRemaining} questions. Let's begin with the first question.`;
 
       await voiceEngine.speakMessage(greeting);
-
-      // Step 4: Ask first question
       await askCurrentQuestion();
     } catch (error) {
       console.error("❌ Failed to start interview:", error);
@@ -168,104 +219,118 @@ function InterviewPageContent() {
     }
   };
 
-  const askQuestionByIndex = async (questionIndex: number) => {
-    if (!campaign || questionIndex >= campaign.questions.length) {
+  // Ask current question
+  const askCurrentQuestion = async () => {
+    if (
+      !conversationData ||
+      currentQuestionIndex >= conversationData.messages.length
+    ) {
       await completeInterview();
       return;
     }
 
-    const question = campaign.questions[questionIndex];
-    console.log(`🤔 Asking question ${questionIndex + 1}: ${question}`);
+    const currentMessage = conversationData.messages[currentQuestionIndex];
+    if (currentMessage.answer) {
+      // This question is already answered, skip to next
+      const nextIndex = conversationData.messages.findIndex(
+        (msg) => !msg.answer
+      );
+      if (nextIndex === -1) {
+        await completeInterview();
+        return;
+      }
+      setCurrentQuestionIndex(nextIndex);
+      // return askCurrentQuestion();
+    }
 
-    await voiceEngine.speakMessage(question);
+    console.log(
+      `🤔 Asking question ${currentQuestionIndex + 1}: ${
+        currentMessage.question
+      }`
+    );
+    await voiceEngine.speakMessage(currentMessage.question);
     setIsWaitingForAnswer(true);
   };
 
-  // Ask the current question
-  const askCurrentQuestion = async () => {
-    await askQuestionByIndex(currentQuestionIndex);
-  };
+  // Handle answer received
+  const handleAnswerReceived = async (answerText: string) => {
+    console.log("📥 Processing answer:", answerText);
 
-  // Handle received answer
-  async function handleAnswerReceived(answerText: string) {
-    console.log("📥 handleAnswerReceived called with:", answerText);
-    console.log("📊 Current state:", {
-      isWaitingForAnswer,
-      currentQuestionIndex,
-      interviewState,
-    });
-
-    if (!answerText.trim()) {
-      console.log("❌ Empty answer text, skipping");
+    if (!answerText.trim() || !isWaitingForAnswer || !conversationData) {
       return;
     }
 
-    if (!isWaitingForAnswer) {
-      console.log("❌ Not waiting for answer, skipping");
-      return;
-    }
-
-    console.log("✅ Processing answer:", answerText);
     setIsWaitingForAnswer(false);
-
-    // Record the answer
-    const currentQuestion = campaign!.questions[currentQuestionIndex];
-    const newRecord: ConversationRecord = {
-      question: currentQuestion,
-      answer: answerText,
-      timestamp: new Date(),
-    };
-
-    console.log("💾 Saving conversation record:", newRecord);
-    setConversation((prev) => [...prev, newRecord]);
+    const currentMessage = conversationData.messages[currentQuestionIndex];
 
     try {
-      await saveConversationMessage(currentQuestion, answerText);
-      console.log("✅ Conversation saved to backend");
+      // Save answer to backend
+      await fetch("/api/interview-conversations/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: conversationId,
+          questionIndex: currentMessage.question_index,
+          question: currentMessage.question,
+          answer: answerText,
+          metadata: {
+            answered_at: new Date().toISOString(),
+          },
+        }),
+      });
+
+      // Update local state
+      const updatedMessages = [...conversationData.messages];
+      updatedMessages[currentQuestionIndex] = {
+        ...currentMessage,
+        answer: answerText,
+        answer_timestamp: new Date().toISOString(),
+      };
+
+      setConversationData({
+        ...conversationData,
+        messages: updatedMessages,
+        questions_answered: conversationData.questions_answered + 1,
+      });
+
+      console.log("✅ Answer saved");
     } catch (error) {
-      console.error("❌ Failed to save to backend:", error);
+      console.error("❌ Failed to save answer:", error);
     }
 
-    // Acknowledge and move to next question
-    console.log("🗣️ Speaking acknowledgment...");
+    // Acknowledge and move to next
     await voiceEngine.speakMessage("Thank you for your answer.");
 
-    // Calculate next question index
-    const nextQuestionIndex = currentQuestionIndex + 1;
-    console.log(`➡️ Moving to question ${nextQuestionIndex + 1}...`);
+    // Find next unanswered question
+    const nextUnansweredIndex = conversationData.messages.findIndex(
+      (msg, index) => index > currentQuestionIndex && !msg.answer
+    );
 
-    // Update state
-    setCurrentQuestionIndex(nextQuestionIndex);
+    if (nextUnansweredIndex === -1) {
+      // No more questions
+      await completeInterview();
+    } else {
+      setTimeout(() => {
+        setCurrentQuestionIndex(nextUnansweredIndex);
+        // The useEffect will handle asking the next question
+      }, 1000);
+    }
 
-    // Small delay then ask next question with explicit index
-    setTimeout(async () => {
-      console.log(`🤔 About to ask question ${nextQuestionIndex + 1}...`);
-      await askQuestionByIndex(nextQuestionIndex);
-    }, 1000);
-
-    setTranscript(""); // Clear transcript
-  }
+    setTranscript("");
+  };
 
   // Complete interview
   const completeInterview = async () => {
     try {
-      // Update conversation status
-      if (conversationId) {
-        await fetch("/api/interview-conversations", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversationId,
-            status: "completed",
-            completedAt: new Date().toISOString(),
-            questionsAnswered: conversation.length,
-            metadata: {
-              completed_at: new Date().toISOString(),
-              total_duration: Date.now() - (interviewStartTime || Date.now()),
-            },
-          }),
-        });
-      }
+      await fetch(`/api/interview-conversations`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: conversationId,
+          status: "completed",
+          started_at: new Date().toISOString(),
+        }),
+      });
 
       await voiceEngine.speakMessage(
         "Thank you for completing the interview! Your responses have been recorded and the recruiter will review them shortly. Have a great day!"
@@ -274,106 +339,14 @@ function InterviewPageContent() {
       setInterviewState("completed");
     } catch (error) {
       console.error("Failed to complete interview:", error);
-      // Still set to completed - don't let backend errors break UX
-      setInterviewState("completed");
+      setInterviewState("completed"); // Still mark as completed
     }
   };
 
-  // Backend operations
-  const createQuestionRecords = async (convId: string) => {
-    if (!campaign) return;
-
-    try {
-      // Create all questions upfront
-      const promises = campaign.questions.map((question, index) =>
-        fetch("/api/interview-conversations/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversationId: convId,
-            questionIndex: index,
-            question,
-            metadata: { created_at: new Date().toISOString() },
-          }),
-        })
-      );
-
-      await Promise.all(promises);
-      console.log("✅ All question records created");
-    } catch (error) {
-      console.error("Failed to create question records:", error);
-      throw error;
-    }
-  };
-
-  const createConversationRecord = async () => {
-    if (!campaignId || !candidateId || !campaign) return;
-
-    try {
-      const response = await fetch("/api/interview-conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          campaignId,
-          candidateId,
-          totalQuestions: campaign.questions.length,
-          metadata: {
-            role: campaign.role,
-            campaignName: campaign.campaign_name,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setConversationId(data.conversationId);
-
-      // Pre-create all question records
-      await createQuestionRecords(data.conversationId);
-    } catch (error) {
-      console.error("Failed to create conversation record:", error);
-      throw error; // Re-throw to handle in startInterview
-    }
-  };
-
-  const saveConversationMessage = async (question: string, answer: string) => {
-    if (!conversationId) return;
-
-    try {
-      const response = await fetch("/api/interview-conversations/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          conversationId,
-          questionIndex: currentQuestionIndex,
-          question,
-          answer,
-          metadata: {
-            answered_at: new Date().toISOString(),
-            transcript_confidence: 1.0, // You can add this from your speech recognition
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to save message: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("✅ Message saved:", data);
-    } catch (error) {
-      console.error("Failed to save conversation message:", error);
-      // Don't throw - we don't want to stop the interview flow for this
-    }
-  };
-
-  // Error states
-  if (!campaignId || !candidateId) {
+  // Error handling
+  if (!conversationId) {
     return (
-      <ErrorScreen message="Invalid interview link - missing required parameters." />
+      <ErrorScreen message="Invalid interview link - missing conversation ID." />
     );
   }
 
@@ -383,18 +356,26 @@ function InterviewPageContent() {
     );
   }
 
-  if (!campaign) {
+  if (!conversationData) {
     return <LoadingScreen message="Loading interview..." />;
   }
 
+  // Calculate progress
+  const answeredQuestions = conversationData.messages.filter(
+    (msg) => msg.answer
+  ).length;
+  const totalQuestions = conversationData.total_questions;
+  const progressPercentage = (answeredQuestions / totalQuestions) * 100;
+
   return (
-    <div className="min-h-screen pt-16 ">
+    <div className="min-h-screen pt-16">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold mb-2">AI Interview Portal</h1>
           <p className="text-gray-300">
-            {campaign.role} - {campaign.campaign_name}
+            {conversationData.metadata?.role || "Interview"} -{" "}
+            {conversationData.metadata?.campaignName || "Position"}
           </p>
 
           {interviewState === "loading" && (
@@ -428,7 +409,7 @@ function InterviewPageContent() {
                 </button>
               )}
 
-              {/* Currently Speaking */}
+              {/* Speaking Indicator */}
               {voiceEngine.isSpeaking && (
                 <div className="px-4 py-2 bg-blue-600 rounded-full text-sm">
                   <div className="flex items-center">
@@ -438,7 +419,7 @@ function InterviewPageContent() {
                 </div>
               )}
 
-              {/* Waiting for Answer */}
+              {/* Recording Controls */}
               {isWaitingForAnswer && !voiceEngine.isSpeaking && (
                 <div className="space-y-3">
                   <div className="px-4 py-2 bg-green-600 rounded-full text-sm">
@@ -497,18 +478,12 @@ function InterviewPageContent() {
               {interviewState === "active" && (
                 <div>
                   <p className="text-green-400 mb-2">
-                    Question {currentQuestionIndex} of{" "}
-                    {campaign.questions.length}
+                    Question {answeredQuestions} of {totalQuestions}
                   </p>
                   <div className="w-full bg-gray-700 rounded-full h-2">
                     <div
                       className="bg-green-500 h-2 rounded-full transition-all duration-500"
-                      style={{
-                        width: `${
-                          (currentQuestionIndex / campaign.questions.length) *
-                          100
-                        }%`,
-                      }}
+                      style={{ width: `${progressPercentage}%` }}
                     ></div>
                   </div>
                 </div>
@@ -529,38 +504,40 @@ function InterviewPageContent() {
 
             {/* Current Question */}
             {interviewState === "active" &&
-              campaign.questions[currentQuestionIndex] && (
+              conversationData.messages[currentQuestionIndex] && (
                 <div className="bg-blue-900/30 rounded-lg p-6 border border-blue-700">
                   <h4 className="text-sm text-blue-400 mb-2">
                     Current Question:
                   </h4>
                   <p className="text-white font-medium">
-                    {campaign.questions[currentQuestionIndex]}
+                    {conversationData.messages[currentQuestionIndex].question}
                   </p>
                 </div>
               )}
 
-            {/* Conversation History */}
-            {conversation.length > 0 && (
+            {/* Answered Questions */}
+            {answeredQuestions > 0 && (
               <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 max-h-64 overflow-y-auto">
                 <h4 className="text-sm text-gray-400 mb-3">
                   Completed Questions:
                 </h4>
                 <div className="space-y-3">
-                  {conversation.map((record, index) => (
-                    <div
-                      key={index}
-                      className="border-l-2 border-green-500 pl-3"
-                    >
-                      <p className="text-xs text-green-400 mb-1">
-                        Q{index + 1}:
-                      </p>
-                      <p className="text-sm text-gray-300 mb-2">
-                        {record.question}
-                      </p>
-                      <p className="text-xs text-gray-400">✓ Answered</p>
-                    </div>
-                  ))}
+                  {conversationData.messages
+                    .filter((msg) => msg.answer)
+                    .map((message, index) => (
+                      <div
+                        key={message.id}
+                        className="border-l-2 border-green-500 pl-3"
+                      >
+                        <p className="text-xs text-green-400 mb-1">
+                          Q{message.question_index + 1}:
+                        </p>
+                        <p className="text-sm text-gray-300 mb-2">
+                          {message.question}
+                        </p>
+                        <p className="text-xs text-gray-400">✓ Answered</p>
+                      </div>
+                    ))}
                 </div>
               </div>
             )}

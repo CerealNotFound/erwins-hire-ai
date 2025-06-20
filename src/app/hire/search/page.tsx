@@ -108,9 +108,7 @@ export default function Search() {
   }, [activeSearchId]);
 
   useEffect(() => {
-    setTimeout(() => {
-      fetchSearches();
-    }, 0);
+    fetchSearches();
   }, []);
 
   useEffect(() => {

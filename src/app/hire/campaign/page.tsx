@@ -1,30 +1,21 @@
+"use client";
+
 import { Suspense } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Plus,
-  Users,
-  MessageSquare,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-} from "lucide-react";
-import OutreachForm from "@/components/outreach-form";
+import { Plus, Users, TrendingUp } from "lucide-react";
+import { useRouter } from "next/navigation";
 import CampaignList from "@/components/campaigns/campaign-list";
 import CampaignMetrics from "@/components/campaigns/campaign-metrics";
 
 export default function CampaignPage() {
+  const router = useRouter();
+
+  const handleCreateCampaign = () => {
+    router.push("/hire/campaign/create");
+  };
+
   return (
     <div className="min-h-screen pt-10 pb-8">
       <div className="container mx-auto px-6 space-y-8">
@@ -38,12 +29,10 @@ export default function CampaignPage() {
               Manage your recruitment campaigns and track candidate engagement
             </p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" size="sm">
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Analytics
-            </Button>
-          </div>
+          <Button variant="outline" size="sm">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Analytics
+          </Button>
         </div>
 
         {/* Quick Stats */}
@@ -51,58 +40,25 @@ export default function CampaignPage() {
           <CampaignMetrics />
         </Suspense>
 
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="campaigns" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 bg-muted border border-neutral-200">
-            <TabsTrigger
-              value="campaigns"
-              className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
-            >
-              <Users className="w-4 h-4 mr-2" />
-              My Campaigns
-            </TabsTrigger>
-            <TabsTrigger
-              value="create"
-              className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create Campaign
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="campaigns" className="space-y-6">
-            <div className="flex items-center justify-between">
+        {/* Campaigns Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Users className="w-5 h-5 text-orange-500" />
               <h2 className="text-xl font-semibold text-white">
                 Active Campaigns
               </h2>
-              <Button size="sm">
-                <Plus className="w-4 h-4" />
-                Quick Create
-              </Button>
             </div>
+            <Button onClick={handleCreateCampaign} className="cursor-pointer">
+              <Plus className="w-4 h-4 mr-2" />
+              Create Campaign
+            </Button>
+          </div>
 
-            <Suspense fallback={<CampaignsSkeleton />}>
-              <CampaignList />
-            </Suspense>
-          </TabsContent>
-
-          <TabsContent value="create" className="space-y-6">
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-neutral rounded-lg border border-neutral-200 p-8 shadow-sm">
-                <div className="mb-6">
-                  <h2 className="text-xl font-semibold text-white mb-2">
-                    Launch New Campaign
-                  </h2>
-                  <p className="text-neutral-400">
-                    Set up your outreach parameters and start connecting with
-                    candidates
-                  </p>
-                </div>
-                <OutreachForm />
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+          <Suspense fallback={<CampaignsSkeleton />}>
+            <CampaignList />
+          </Suspense>
+        </div>
       </div>
     </div>
   );

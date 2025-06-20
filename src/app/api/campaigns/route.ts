@@ -45,7 +45,7 @@ export async function GET(request: Request) {
         const interviews_completed = conversations?.filter(c => c.status === "completed").length || 0;
         
         const response_rate = interviews_started > 0 
-          ? (interviews_completed / interviews_started) * 100 
+          ? (interviews_completed / interviews_started) * 100
           : 0;
 
         return {
