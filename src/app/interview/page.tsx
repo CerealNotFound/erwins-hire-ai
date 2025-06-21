@@ -219,6 +219,37 @@ function InterviewPageContent() {
     }
   };
 
+  // Add this helper function (copy from your second file)
+  const askQuestionByIndex = async (questionIndex: number) => {
+    if (
+      !conversationData ||
+      questionIndex >= conversationData.messages.length
+    ) {
+      await completeInterview();
+      return;
+    }
+
+    const currentMessage = conversationData.messages[questionIndex];
+    if (currentMessage.answer) {
+      // This question is already answered, find the next unanswered one
+      const nextIndex = conversationData.messages.findIndex(
+        (msg, index) => index > questionIndex && !msg.answer
+      );
+      if (nextIndex === -1) {
+        await completeInterview();
+        return;
+      }
+      // Recursively call with the next unanswered question
+      return askQuestionByIndex(nextIndex);
+    }
+
+    console.log(
+      `🤔 Asking question ${questionIndex + 1}: ${currentMessage.question}`
+    );
+    await voiceEngine.speakMessage(currentMessage.question);
+    setIsWaitingForAnswer(true);
+  };
+
   // Ask current question
   const askCurrentQuestion = async () => {
     if (
@@ -239,8 +270,10 @@ function InterviewPageContent() {
         await completeInterview();
         return;
       }
-      setCurrentQuestionIndex(nextIndex);
-      // return askCurrentQuestion();
+      setTimeout(() => {
+        setCurrentQuestionIndex(nextIndex);
+      }, 0);
+      return askCurrentQuestion();
     }
 
     console.log(
@@ -252,7 +285,7 @@ function InterviewPageContent() {
     setIsWaitingForAnswer(true);
   };
 
-  // Handle answer received
+  // 🔧 FIXED VERSION of handleAnswerReceived function
   const handleAnswerReceived = async (answerText: string) => {
     console.log("📥 Processing answer:", answerText);
 
@@ -260,7 +293,9 @@ function InterviewPageContent() {
       return;
     }
 
+    // 🚨 CRITICAL: Set this to false FIRST to prevent race conditions
     setIsWaitingForAnswer(false);
+
     const currentMessage = conversationData.messages[currentQuestionIndex];
 
     try {
@@ -287,38 +322,62 @@ function InterviewPageContent() {
         answer_timestamp: new Date().toISOString(),
       };
 
-      setConversationData({
+      const updatedConversationData = {
         ...conversationData,
         messages: updatedMessages,
         questions_answered: conversationData.questions_answered + 1,
-      });
+      };
 
+      setConversationData(updatedConversationData);
       console.log("✅ Answer saved");
+
+      // Acknowledge the answer
+      await voiceEngine.speakMessage("Thank you for your answer.");
+
+      // 🎯 FIXED: Calculate next question index and handle completion
+      const nextQuestionIndex = currentQuestionIndex + 1;
+
+      if (nextQuestionIndex >= conversationData.messages.length) {
+        // No more questions - complete the interview
+        console.log("🏁 All questions completed, finishing interview...");
+        await completeInterview();
+        return;
+      }
+
+      // Update to next question
+      setCurrentQuestionIndex(nextQuestionIndex);
+
+      // 🔥 KEY FIX: Add a small delay and then ask next question
+      // This ensures the acknowledgment finishes before starting next question
+      setTimeout(async () => {
+        console.log(`🚀 Moving to question ${nextQuestionIndex + 1}`);
+
+        const nextMessage = conversationData.messages[nextQuestionIndex];
+        if (nextMessage && !nextMessage.answer) {
+          console.log(
+            `🤔 Asking question ${nextQuestionIndex + 1}: ${
+              nextMessage.question
+            }`
+          );
+          await voiceEngine.speakMessage(nextMessage.question);
+          setIsWaitingForAnswer(true); // Now we're ready for the next answer
+        } else {
+          // This shouldn't happen, but if it does, complete the interview
+          console.log(
+            "❓ Next question already answered or missing, completing interview"
+          );
+          await completeInterview();
+        }
+      }, 1500); // Give 1.5 seconds for "Thank you" to finish
     } catch (error) {
       console.error("❌ Failed to save answer:", error);
+      // Even if save fails, try to continue
+      setIsWaitingForAnswer(true);
     }
 
-    // Acknowledge and move to next
-    await voiceEngine.speakMessage("Thank you for your answer.");
-
-    // Find next unanswered question
-    const nextUnansweredIndex = conversationData.messages.findIndex(
-      (msg, index) => index > currentQuestionIndex && !msg.answer
-    );
-
-    if (nextUnansweredIndex === -1) {
-      // No more questions
-      await completeInterview();
-    } else {
-      setTimeout(() => {
-        setCurrentQuestionIndex(nextUnansweredIndex);
-        // The useEffect will handle asking the next question
-      }, 1000);
-    }
-
-    setTranscript("");
+    setTranscript(""); // Clear transcript
   };
-
+  
   // Complete interview
   const completeInterview = async () => {
     try {
