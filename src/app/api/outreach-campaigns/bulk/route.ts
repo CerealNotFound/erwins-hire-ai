@@ -331,7 +331,7 @@ async function processCompleteCandidate(
         const baseUrl =
           // process.env.NEXT_PUBLIC_BASE_URL ||
           process.env.VERCEL_URL || "http://localhost:3000";
-        const interviewLink = `${baseUrl}/interview?conversationId=${conversation.id}`;
+        const interviewLink = `https://erwins-hire-ai.vercel.app/interview?conversationId=${conversation.id}`;
 
         console.log(`📧 Interview link: ${interviewLink}`);
 
